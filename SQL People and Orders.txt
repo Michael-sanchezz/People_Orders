@@ -1,0 +1,269 @@
+Reports on people collection:
+  1.Average age
+  Expected Result: 41.41
+  db.people.aggregate([
+  {
+    $group: {
+      _id: null, // Group all documents into a single group
+      averageAge: { $avg: "$age" } // Calculate the average age
+    }
+  }
+])
+  2.Average age by gender
+  Expected Result: Female: 42.04, Male: 40.60
+db.people.aggregate([
+  {
+    $group: {
+      _id: "$gender", // Group documents by gender
+      averageAge: { $avg: "$age" } // Calculate the average age for each gender group
+    }
+  },
+  {
+    $project: {
+      _id: 1,
+      averageAge: { $round: ["$averageAge", 2] } // Round the average age to two decimal points
+    }
+  }
+])
+  3.Number of people by gender
+  Expected Result: Female: 113, Male: 87
+  db.people.aggregate([
+  {
+  $group: {
+    _id: "$gender", // Group documents by gender
+    count: { $sum: 1 } // Count the number of documents in each gender group
+  }
+},
+{
+  $project: {
+    _id: 0, // Exclude the default _id field
+    gender: "$_id", // Rename the _id field to "gender"
+    count: 1 // Retain the count field
+    }
+  }
+])
+
+  4.3 oldest people
+  Expected Result: Phyllis Gray 81, Melissa Banks 79, Walter Bishop 76
+  db.people.aggregate([
+  {
+    $sort: { age: -1 } // Sort documents by age in descending order meaning all ages get sorted and the first 3 are put into the container
+  },
+  {
+    $limit: 3 // Limit the results to the top 3 documents (oldest people)
+  },
+  {
+    $project: {
+      _id: 0,
+      fullName: { $concat: ["$first_name", " ", "$last_name"] },
+      age: 1 // this is where age is contained 
+    }
+  }
+])
+
+  5.5 youngest people, display only their names as one value (first + " " + last) and their ages
+  Expected Result: Nicholas Hunter 17, Kenneth Burns 18, Kathy Hayes 19, Edward Hayes 21, Steve Vasquez 21)
+  db.people.aggregate([
+  {
+    $sort: { age: 1 } // Sort documents by age in ascending order
+  },
+  {
+    $limit: 5 // Limit the results to the top 5 documents (youngest people)
+  },
+  {
+    $project: {
+      _id: 0,
+      fullName: { $concat: ["$first_name", " ", "$last_name"] },
+      age: 1 // Include the age field
+    }
+  }
+])
+
+  6.Average number of children
+  Expected Result: 2.34
+  db.people.aggregate([
+  {
+    $unwind: "$children" // Deconstruct the children array
+  },
+  {
+    $group: {
+      _id: null, // Group all documents into one group
+      avgAge: { $avg: "$children.age" } // Calculate the average age
+    }
+  }
+])
+  7.Name and age of children in Michigan who are under age ten
+  db.people.aggregate([
+  {
+    $match: {
+      state: "Michigan",
+      "children.age": { $lt: 10 }
+    }
+  },
+  {
+    $unwind: "$children"
+  },
+  {
+    $match: {
+      "children.age": { $lt: 10 }
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      "Name": "$children.name",
+      "Age": "$children.age"
+    }
+  }
+])
+
+  Expected Result: Adam 0, Janice 1, Judith 3, Beverly 4, Antonio 6, Jeremy 7
+  8.Average age of child by state, sorted with oldest first
+  db.people.aggregate([
+  {
+    $unwind: "$children" // Deconstruct the children array
+  },
+  {
+    $group: {
+      _id: "$state", // Group by state
+      avgAge: { $avg: "$children.age" } // Calculate the average age
+    }
+  },
+  {
+    $sort: { avgAge: -1 } // Sort by average age in descending order (oldest first)
+  }
+])
+
+  Expected Result: Rhode Island 20, Idaho 20, Louisiana 15.7, Kentucky 13.1, Indiana 12.6, ...
+Reports on orders collection:
+  1.Find the total dollar amount of all sales ever. Use the total field.
+db.orders.aggregate([
+  {
+    $group: {
+      _id: null, // Group all documents into one group
+      totalSales: { $sum: "$total" } // Calculate the total sum of the 'total' field
+    }
+  }
+])
+
+  Expected Result: 680.92
+  2.Find the total dollar amount of sales on 2017-05-22. Use the total field.
+  db.orders.aggregate([
+  {
+    $match: {
+      date: ("2017-05-22") // Match documents for the specific date
+    }
+  },
+  {
+    $group: {
+      _id: null, // Group all documents into one group
+      totalSales: { $sum: "$total" } // Calculate the total sum of the 'total' field
+    }
+  }
+])
+
+  Expected Result: 271.2
+  3.Find the date with the greatest number of orders. Include the date and the number of orders.
+
+db.orders.aggregate([
+  {
+    $group: {
+      _id: "$date", // Group by order date
+      orderCount: { $sum: 1 } // Count the number of orders for each date
+    }
+  },
+  {
+    $sort: { orderCount: -1 } // Sort the result by order count in descending order
+  },
+  {
+    $limit: 1 // Limit the result to the first document
+  },
+  {
+    $project: {
+      _id: 0, // Exclude the _id field
+      date: "$_id", // Rename the _id field to date
+      orderCount: 1 // Include the order count
+    }
+  }
+])
+  Expected Result: 2017-05-04 3
+  4.Find the date with the greatest total sales. Include the date and the dollar amount for that day.
+db.orders.aggregate([
+  {
+    $group: {
+      _id: "$date", // Group by order date
+      totalSales: { $sum: "$total" } // Calculate the total sales for each date
+    }
+  },
+  {
+    $sort: { totalSales: -1 } // Sort the result by total sales in descending order
+  },
+  {
+    $limit: 1 // Limit the result to the first document
+  },
+  {
+    $project: {
+      _id: 0, // Exclude the _id field
+      date: "$_id", // Rename the _id field to date
+      totalSales: 1 // Include the total sales
+    }
+  }
+])
+
+  Expected Result: 2017-05-22 $271.2
+  5.Find the top three products that have had the greatest number sold. Include product name and number sold.
+db.orders.aggregate([
+  {
+    $unwind: "$items" // Deconstruct the items array
+  },
+  {
+    $group: {
+      _id: "$items.product", // Group by product name
+      totalSold: { $sum: "$items.count" }, // Calculate the total quantity sold for each product
+      
+    }
+  },
+  {
+    $sort: { totalSold: -1 } // Sort the result by total quantity sold in descending order
+  },
+  {
+    $limit: 3 // Limit the result to the top three products
+  },
+  {
+    $project: {
+      _id: 0, // Exclude the _id field
+      productName: "$_id", // Rename the _id field to productName
+      totalSold: 1, // Include the total quantity sold
+     
+    }
+  }
+])
+
+  Expected Result: Pine Nuts 13, Cheese 8, Top Hat 5
+  6.Find the top item that has the greatest revenue (number sold * price). Include product name and dollar amount of sales.
+  Expected Result: Shoes 197.98
+  db.orders.aggregate([
+  {
+    $unwind: "$items" // Deconstruct the items array
+  },
+  {
+    $group: {
+      _id: "$items.product", // Group by product name
+      totalRevenue: { $sum: { $multiply: ["$items.count", "$items.price"] } } // Calculate the total revenue for each product
+    }
+  },
+  {
+    $sort: { totalRevenue: -1 } // Sort the result by total revenue in descending order
+  },
+  {
+    $limit: 1 // Limit the result to the top item
+  },
+  {
+    $project: {
+      _id: 0, // Exclude the _id field
+      productName: "$_id", // Rename the _id field to productName
+      totalRevenue: 1 // Include the total revenue
+    }
+  }
+])  
+
